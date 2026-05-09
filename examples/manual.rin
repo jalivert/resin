@@ -1,0 +1,36 @@
+constants: a, b, c .
+
+% aliases : .
+
+axioms      
+      % a simple fact
+      : (simple-a: Simple(a))
+      , (simple-b: Simple(b))
+      , (not-simple-c: ¬Simple(c))
+      
+      % a few rules
+      , (simple-of-foo: ∀ x Simple(x) ==> Simple(foo(x))) .
+
+
+% Only the axiom simple-a will be used for the inference of the conclusion of the theorem.
+
+theorem some-simple : ∃ o Simple(o) . using { simple-a }
+
+
+
+
+% Only the axiom simple-a will be used for the inference of the conclusion of the theorem.
+
+theorem no-simple : ¬(∃ o Simple(o))
+proof : ∃ i Simple(i) . using { simple-a }
+
+
+
+
+% theorem a-is-simple: Simple(a) .
+
+% theorem manual: (e-simple : ∃ e Simple(e))
+%               , (f-simple : ∃ f Simple(f))
+%               ⊢ ⊤
+% proof : lemma imp : ¬(∃ o Simple(o))
+%       , lemma arg1 : ∃ e Simple(e) using { e-simple } .

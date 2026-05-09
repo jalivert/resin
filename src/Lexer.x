@@ -52,11 +52,14 @@ $space+                 ;
 -- keywords
 ","                     { \_ -> token Token.Comma }
 "."                     { \_ -> token Token.Period }
+"lemma"                 { \_ -> token Token.Lemma }
 "theorem"               { \_ -> token Token.Theorem }
+"proof"                 { \_ -> token Token.Proof }
 "constants"             { \_ -> token Token.Constants }
 "axioms"                { \_ -> token Token.Axioms }
 "aliases"               { \_ -> token Token.Aliases }
 ":"                     { \_ -> token Token.Colon }
+"using"                 { \_ -> token Token.Using }
 "⊢"                     { \_ -> token Token.Turnstile }
 
 "="                     { \_ -> token Token.Equal }
@@ -199,7 +202,7 @@ data AlexInput = Input
 data Lexer'State = Lexer'State
   { lexer'input   :: !AlexInput
   , constants     :: ![String]
-  , scope         :: ![String]
+  , scope         :: ![[String]]
   , aliases       :: ![(String, Term)] }
   deriving (Eq, Show)
 
@@ -212,7 +215,7 @@ initial'state s = Lexer'State
                         , ai'last'char  = '\n'
                         , ai'input      = s }
   , constants         = []
-  , scope             = []
+  , scope             = [[]]  --  Starting with the global scope for axioms and theorems.
   , aliases           = [] }
 
 }

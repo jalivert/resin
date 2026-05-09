@@ -77,7 +77,7 @@ library
 
     -- Other library packages from which modules are imported.
     build-depends:
-        base ^>=4.19.0.0,
+        base >= 4.20 && < 4.23,
         array >= 0.5.4.0,
         containers >=0.6.2.1,
         directory,
@@ -92,7 +92,7 @@ library
     hs-source-dirs:   src
 
     -- Base language which the package is written in.
-    default-language: Haskell2010
+    default-language: GHC2021
 
     build-tool-depends: alex:alex >=3.2.6 && <4.0, happy:happy >=1.20.0 && <2.0
 
@@ -113,7 +113,8 @@ executable resin
 
     -- Other library packages from which modules are imported.
     build-depends:
-        base ^>=4.19.0.0,
+        base >= 4.20 && < 4.23,
+        array >= 0.5.4.0,
         containers >=0.6.2.1,
         extra,
         resin
@@ -122,7 +123,7 @@ executable resin
     hs-source-dirs:   app
 
     -- Base language which the package is written in.
-    default-language: Haskell2010
+    default-language: GHC2021
 
     default-extensions: NamedFieldPuns ImportQualifiedPost BangPatterns
 
@@ -131,7 +132,7 @@ test-suite resin-test
     import:           warnings
 
     -- Base language which the package is written in.
-    default-language: Haskell2010
+    default-language: GHC2021
 
     -- Modules included in this executable, other than Main.
     -- other-modules:
@@ -150,5 +151,5 @@ test-suite resin-test
 
     -- Test dependencies.
     build-depends:
-        base ^>=4.19.0.0,
+        base >= 4.20 && < 4.23,
         resin

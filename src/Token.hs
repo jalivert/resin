@@ -10,11 +10,14 @@ data Token  = Upper'Var String
             --  keywords
             | Comma           --  ,
             | Period          --  .
+            | Lemma           --  lemma
             | Theorem         --  theorem
+            | Proof           --  proof
             | Axioms          --  axioms
             | Constants       --  constants
             | Aliases         --  aliases
             | Colon           --  :
+            | Using           --  using
             | Turnstile       --  ⊢
 
             | Tautology       --  ⊤

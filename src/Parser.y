@@ -12,7 +12,7 @@ import Data.Maybe ( fromMaybe )
 import Lexer ( lexer, eval'parser, Lexer(..), AlexInput(..), Lexer'State(..) )
 import Token ( Token )
 import Token qualified as Token
-import Syntax ( Rel(..), Term(..), Formula(..), Theorem(..) )
+import Syntax ( Rel(..), Term(..), Formula(..), Theorem(..), Proof, Assertion(..) )
 import Syntax qualified as S
 
 }
@@ -40,11 +40,14 @@ import Syntax qualified as S
 
   ','         { Token.Comma }
   '.'         { Token.Period }
+  'lemma'     { Token.Lemma }
   'theorem'   { Token.Theorem }
+  'proof'     { Token.Proof }
   'constants' { Token.Constants }
   'axioms'    { Token.Axioms }
   'aliases'   { Token.Aliases }
   ':'         { Token.Colon }
+  'using'     { Token.Using }
   '⊢'         { Token.Turnstile }
   '⊤'         { Token.Tautology }
   '⊥'         { Token.Contradiction }
@@ -74,7 +77,7 @@ import Syntax qualified as S
 
 %%
 
-Module      ::  { ([String], [(String, Term)], [Formula], [Theorem]) }
+Module      ::  { ([String], [(String, Term)], [(Maybe String, Formula)], [Theorem]) }
             :   Constants Aliases Axioms Theorems
                                             { ($1, $2, $3, $4) }
 
@@ -131,14 +134,25 @@ Constant    ::  { String }
             |   NUMBER                      { $1 }
 
 
-Axioms      ::  { [Formula] }
+Axioms      ::  { [(Maybe String, Formula)] }
             :   'axioms' ':' Axs '.'        { $3 }
             |   {-  empty   -}              { [] }
 
 
-Axs         ::  { [Formula] }
-            :   Formula                     { [ $1 ] }
-            |   Formula ',' Axs             { $1 : $3 }
+Axs         ::  { [(Maybe String, Formula)] }
+            :   Formula                     { [ (Nothing, $1) ] }
+            |   Formula ',' Axs             { (Nothing, $1) : $3 }
+            |   '(' LOWER ':' Formula ')'   {% do
+                                                { s <- get
+                                                ; let (b : bs) = scope s
+                                                ; put s{ scope = ($2 : b) : bs }
+                                                ; return [(Just $2, $4)] } }
+            |   '(' LOWER ':' Formula ')' ',' Axs
+                                              {% do
+                                                { s <- get
+                                                ; let (b : bs) = scope s
+                                                ; put s{ scope = ($2 : b) : bs }
+                                                ; return ((Just $2, $4) : $7)} }
 
 
 Theorems    ::  { [Theorem] }
@@ -147,23 +161,152 @@ Theorems    ::  { [Theorem] }
 
 
 Theorem     ::  { Theorem }
-            :   'theorem' LOWER ':' Assumptions '⊢'  Conclusion '.'
-                                            { Theorem { name = $2
-                                                      , assumptions = $4
-                                                      , conclusion = $6 } }
-            |   'theorem' LOWER ':' Formula '.'
-                                            { Theorem { name = $2
-                                                      , assumptions = []
-                                                      , conclusion = $4 } }
+            :   'theorem' LOWER ':' InsertAssumptionScope Assumptions '⊢'  Conclusion InsertProofScope Proof '.' MaybeUsing
+                                            {% do
+                                                { s <- get
+                                                ; let binders = scope s
+                                                ; put s{ scope = drop 2 binders }
+
+                                                ; s <- get
+                                                ; let (b : bs) = scope s
+                                                ; put s{ scope = ($2 : b) : bs }
+                                            
+                                                ; return Theorem  { name = $2
+                                                                  , assumptions = $5
+                                                                  , conclusion = $7
+                                                                  , proof = $9
+                                                                  , allowed = $11 } } }
+            |   'theorem' LOWER ':' InsertAssumptionScope Formula Proof '.' MaybeUsing
+                                            {% do
+                                                { s <- get
+                                                ; let binders = scope s
+                                                ; put s{ scope = drop 1 binders }
+
+                                                ; s <- get
+                                                ; let (b : bs) = scope s
+                                                ; put s{ scope = ($2 : b) : bs }
+                                            
+                                                ; return Theorem  { name = $2
+                                                                  , assumptions = []
+                                                                  , conclusion = $5
+                                                                  , proof = $6
+                                                                  , allowed = $8 } } }
 
 
-Assumptions ::  { [Formula] }
-            :   Formula AssumpsRest         { $1 : $2 }
+MaybeUsing        ::  { Maybe [String] }
+                  :   {-  empty   -}        { Nothing }
+                  |   'using' '{' Names '}' { Just $3 }
+
+
+InsertAssumptionScope ::  { () }
+                      :   {-  empty  -}   {% do
+                                                { s <- get
+                                                ; let binders = scope s
+                                                ; put s{ scope = [] : binders }
+                                                ; return () } }
+
+
+InsertProofScope  ::  { () }
+                  :   {-  empty  -}         {% do
+                                                { s <- get
+                                                ; let binders = scope s
+                                                ; put (s{ scope = [] : binders })
+                                                ; return () } }
+
+
+Proof       ::  { Proof }
+            :   'proof' ':' Assertions      { $3 }
+                                            -- {% do
+                                            --     { s <- get
+                                            --     ; let binders = scope s
+                                            --     ; put s{ scope = [] : binders }
+                                            --     ; return $3 } }
+            |   {-  empty  -}               { [] }
+                                            -- {% do
+                                            --     { s <- get
+                                            --     ; let binders = scope s
+                                            --     ; put s{ scope = [] : binders }
+                                            --     ; return [] } }
+
+
+Assertions  ::  { Proof }
+            :   Assertion AssertsRest       { $1 : $2 }
+            |   {-  empty  -}               { [] }
+
+
+AssertsRest ::  { Proof }
+            :   ',' Assertion AssertsRest
+                                            { $2 : $3}
+            |   {-  empty  -}               { [] }
+
+
+Assertion   ::  { Assertion }
+            :   Formula                     { Formula Nothing $1 }
+            |   'lemma' LOWER ':' Formula   {% do
+                                                { s <- get
+                                                ; let (b : bs) = scope s
+                                                ; put s{ scope = ($2 : b) : bs }
+                                                ; return (Formula (Just $2) $4) } }
+            |   Formula 'using' '{' Names '}'
+                                            { Restricted Nothing $1 $4 }
+            |   'lemma' LOWER ':' Formula 'using' '{' Names '}'
+                                            {% do
+                                                { s <- get
+                                                ; let (b : bs) = scope s
+                                                ; put s{ scope = ($2 : b) : bs }
+                                                ; return (Restricted (Just $2) $4 $7) } }
+
+
+Names       ::  { [String] }
+            :   LOWER NamesRest             {%  do
+                                                  { binders <- gets scope
+                                                  ; let scope = concat binders
+                                                  ; col'now <- gets (ai'col'no . lexer'input)
+                                                  ; l'no <- gets (ai'line'no . lexer'input)
+                                                  ; let col'no = col'now - List.length $1
+                                                  ; let is'bound = $1 `elem` scope
+                                                  ; if is'bound
+                                                    then return ($1 : $2)
+                                                    else do { throwError ("Parsing Error: Unbound variable `" ++ $1 ++ "' on line " ++ show l'no ++ " column " ++ show col'no ++ ".", col'no) }
+                                                  } }
+            |   {- empty -}                 { [] }
+
+
+NamesRest   ::  { [String] }
+            :   ',' LOWER NamesRest         {%  do
+                                                  { binders <- gets scope
+                                                  ; let scope = concat binders
+                                                  ; col'now <- gets (ai'col'no . lexer'input)
+                                                  ; l'no <- gets (ai'line'no . lexer'input)
+                                                  ; let col'no = col'now - List.length $2
+                                                  ; let is'bound = $2 `elem` scope
+                                                  ; if is'bound
+                                                    then return ($2 : $3)
+                                                    else do { throwError ("Parsing Error: Unbound variable `" ++ $2 ++ "' on line " ++ show l'no ++ " column " ++ show col'no ++ ".", col'no) }
+                                                  } }
+            |   {-  empty  -}               { [] }
+
+
+Assumptions ::  { [(Maybe String, Formula)] }
+            :   Assumption AssumpsRest      { ($1 : $2) }
+            -- |   {-  empty   -}              {% do
+            --                                     { s <- get
+            --                                     ; let binders = scope s
+            --                                     ; put s{ scope = [] : binders }
+            --                                     ; return [] } }
+
+AssumpsRest ::  { [(Maybe String, Formula)] }
+            :   ',' Assumption AssumpsRest     { $2 : $3 }
             |   {-  empty   -}              { [] }
 
-AssumpsRest ::  { [Formula] }
-            :   ',' Formula AssumpsRest     { $2 : $3 }
-            |   {-  empty   -}              { [] }
+
+Assumption  ::  { (Maybe String, Formula) }
+            :   Formula                     { (Nothing, $1) }
+            |   '(' LOWER ':' Formula ')'   {% do
+                                                { s <- get
+                                                ; let (b : bs) = scope s
+                                                ; put s{ scope = ($2 : b) : bs }
+                                                ; return (Just $2, $4) } }
 
 
 Conclusion  ::  { Formula }
@@ -190,12 +333,12 @@ Binders     ::  { [String] }
             :   LOWER                       {% do
                                                 { s <- get
                                                 ; let binders = scope s
-                                                ; put s{ scope = $1 : binders }
+                                                ; put s{ scope = [$1] : binders }
                                                 ; return [ $1 ] } }
             |   LOWER Binders               {% do
                                                 { s <- get
                                                 ; let binders = scope s
-                                                ; put s{ scope = $1 : binders }
+                                                ; put s{ scope = [$1] : binders }
                                                 ; return ($1 : $2) } }
 
 
@@ -245,11 +388,12 @@ Term        ::  { Term }
                                                   { consts <- gets constants
                                                   ; alis <- gets aliases
                                                   ; binders <- gets scope
+                                                  ; let scope = concat binders
                                                   ; col'now <- gets (ai'col'no . lexer'input)
                                                   ; l'no <- gets (ai'line'no . lexer'input)
                                                   ; let col'no = col'now - List.length $1
                                                   ; let is'constant = $1 `elem` consts
-                                                  ; let is'bound = $1 `elem` binders
+                                                  ; let is'bound = $1 `elem` scope
                                                   ; if is'bound
                                                     then return (Var $1)
                                                     else  if is'constant
@@ -279,7 +423,7 @@ Term        ::  { Term }
 
 {
 
-parse'module :: String -> Either (String, Int) ([String], [(String, Term)], [Formula], [Theorem])
+parse'module :: String -> Either (String, Int) ([String], [(String, Term)], [(Maybe String, Formula)], [Theorem])
 parse'module source = mapRight fst $! eval'parser parseModule source
 
 parse'theorems :: String -> Either (String, Int)  [Theorem]

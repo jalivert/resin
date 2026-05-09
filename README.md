@@ -13,7 +13,7 @@ The [book](https://www.cl.cam.ac.uk/~jrh13/atp/) in the *Resources*
 describes some optimizations as well as specific forms of resolution.
 This implementation does not (yet) implement those specific forms or resolution.
 It does, however, contain an implementation of the optimization the book mentions.
-The subsumption, to be more precise. As it turns how, however,
+The subsumption, to be more precise. As it turns out, however,
 that was making the implementation really slow, unbearably slow.
 For that reason, I decided to not use it for the time being.
 
@@ -32,15 +32,23 @@ aliases: 0 = zero
        , 1 = suc(0) .
 
 axioms: ∀ n (Nat(n)) ==> Nat(suc(n))
-      , Nat(0) .
+      , (zero-is-nat: Nat(0)) .
 
 theorem 1-is-nat: Nat(1) .
 
-theorem some-nats : ∃ n Nat(n) .
+theorem some-nats : ∃ n Nat(n) . using { zero-is-nat }
 
-theorem prop-modus-tollens: A => B
+theorem prop-modus-tollens: A ==> B
                           , ¬B
                           ⊢ ¬A .
+
+theorem double-prop-modus-ponens: (a-b: A ==> B)
+                                , B ==> C
+                                , (a: A)
+                                ⊢ C
+proof: lemma have-b: B using { a-b, a }
+     , lemma have-c: C
+     . using { have-c }
 ```
 
 The syntax is quite simple.
@@ -49,7 +57,8 @@ A file is split into three parts:
 - `constants`—so that you don't have to write `zero()` and so on,
 - `aliases`—a list of non-recursive lexical *rewrite rules*,
 - `axioms`—those formulae will be available to all the theorems in the file,
-- `theorems`—in general, they are in the shape of *entialment* but you can omit the assumptions part if there aren't any.
+
+- `theorems`—in general, they are in the shape of *entialment* but you can omit the assumptions part if there aren't any. Theorems can have semi-automatic proofs. A proof is a sequence of assertions, those are named or un-named statements that state that a certain formula is logically valid. Assertions can have `using { }` clause that specifies which *axioms*, *theorems*, and previous *assertions* can be used to prove this one. Theorems can also have `using { }` clause that does the same for the conclusion. When it comes to checking the conclusion of the theorem, assumptions are always included even when the `using { }` clause is present.
 
 All the first three sections must either define one or more constants, axioms or aliases or not be there at all.
 
@@ -170,12 +179,12 @@ The second book's chapters 7 - 9 contain a lot of information. The whole book is
 <!-- 
 ## TODO
 
-- [ ] In all modes (file + REPL) add some flag that causes the following: when a statement can't seem to be proved using the usual algorithm, stop it (after some timeout) and see whether maybe the original goal was already unsatisfiable when conjugated with the assumptions; the flag could be something like `--bidirectional` or `--twoways`
+- [ ] ~~In all modes (file + REPL) add some flag that causes the following: when a statement can't seem to be proved using the usual algorithm, stop it (after some timeout) and see whether maybe the original goal was already unsatisfiable when conjugated with the assumptions; the flag could be something like `--bidirectional` or `--twoways`~~
 - [ ] In general, implement timeouts
 - [x] Lexer
   - [x] `ᶜ` is a special "constant" token
 - [ ] Parser
-  - [ ] fix the S/R conflicts
+  - [ ] fix the S/R conflicts (4)
   - [x] fix the R/R conflicts
   - [x] LOWER and UPPER followed by `ᶜ` is a constant
   - [x] make sure that the precedences work

@@ -1,4 +1,4 @@
-module Syntax ( Rel(..), Term(..), Formula(..), Theorem(..) ) where
+module Syntax ( Rel(..), Term(..), Formula(..), Theorem(..), Proof, Assertion(..) ) where
 
 
 import Prelude hiding ( True, False, And, Or )
@@ -104,6 +104,16 @@ is'compound (Exists x p) = P.True
 
 
 data Theorem = Theorem  { name          :: String
-                        , assumptions   :: [Formula]
-                        , conclusion    :: Formula }
+                        , assumptions   :: [(Maybe String, Formula)]
+                        , conclusion    :: Formula
+                        , proof         :: Proof
+                        , allowed       :: Maybe [String] }
+  deriving (Show, Eq)
+
+
+type Proof = [Assertion]
+
+
+data Assertion  = Formula (Maybe String) Formula
+                | Restricted (Maybe String) Formula [String]
   deriving (Show, Eq)
