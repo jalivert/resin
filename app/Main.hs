@@ -14,7 +14,7 @@ import Data.List.Extra qualified as List
 
 import Parser ( parse'formula, parse'module )
 import Syntax qualified as S
-import Given'Clause ( {- test'fn, -} resolution, pure'resolution, resolution', pren'norm'form, skol'norm'form, con'norm'form, negate, neg'norm'form, nnf, contains'exists, list'conj )
+import Given'Clause ( resolution, pure'resolution, resolution', pren'norm'form, skol'norm'form, con'norm'form, negate, neg'norm'form, nnf, contains'exists, list'conj )
 
 
 main :: IO ()
