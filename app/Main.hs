@@ -12,7 +12,7 @@ import Data.List.Extra qualified as List
 
 import Parser ( parse'formula, parse'module )
 import Syntax qualified as S
-import Given'Clause ( test'fn, resolution, pure'resolution, resolution', pren'norm'form, skol'norm'form, con'norm'form, negate, neg'norm'form, nnf, contains'exists, list'conj )
+import Given'Clause ( resolution, pure'resolution, resolution', pren'norm'form, skol'norm'form, con'norm'form, negate, neg'norm'form, nnf, contains'exists, list'conj )
 
 
 main :: IO ()
@@ -134,16 +134,16 @@ repl assumptions = do
       repl assumptions
     {-  END of debugging commands.  -}
 
-    ':' : '@' : ' ' : formula -> do
-      case parse'formula formula of
-        Left (err, col) -> do
-          let padding = take (prompt'len + 8 + col) $! repeat ' '
-          putStrLn $! padding ++ "^"
-          putStrLn err
-        Right fm -> do
-          putStrLn $! "repeat = " ++ show fm
-          putStrLn $! show $! test'fn fm
-      repl assumptions
+    -- ':' : '@' : ' ' : formula -> do
+    --   case parse'formula formula of
+    --     Left (err, col) -> do
+    --       let padding = take (prompt'len + 8 + col) $! repeat ' '
+    --       putStrLn $! padding ++ "^"
+    --       putStrLn err
+    --     Right fm -> do
+    --       putStrLn $! "repeat = " ++ show fm
+    --       putStrLn $! show $! test'fn fm
+    --   repl assumptions
 
 
     ':' : _ -> do
