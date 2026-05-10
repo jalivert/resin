@@ -1,9 +1,9 @@
 constants: Jack, Tuna, Curiosity .
 
 
-axioms: ∀ x [∀ y Animal(y) ==> Loves(x, y)] ==> [∃ y Loves(y, x)]
+axioms: (animal-lovers-are-loved: ∀ x [∀ y Animal(y) ==> Loves(x, y)] ==> [∃ y Loves(y, x)])
       , ∀ x [∃ z Animal(z) ∧ Kills(x, z)] ==> [∀ y ¬Loves(y, x)]
-      , ∀ x Animal(x) ==> Loves(Jack, x)
+      , (jack-loves-animals: ∀ x Animal(x) ==> Loves(Jack, x))
       , Kills(Jack, Tuna) ∨ Kills(Curiosity, Tuna)
       , Cat(Tuna)
       , ∀ x Cat(x) ==> Animal(x) .
@@ -35,11 +35,12 @@ theorem curiosity-is-killer-implies-jack-didn't-kill-tuna
         ⊢ Killer(Curiosity) ==> ¬Kills(Jack, Tuna) .
 
 
-% what about the following theorem?
-% theorem curiosity-is-killer-implies-jack-isn't
-%         : ∀ x ∀ y Kills(x, y) ==> Terrible(x)
-%         ⊢ Terrible(Curiosity) ==> ¬Terrible(Jack) .
-% what is the reason why it is not provable? (it's not valid, but why?)
+theorem jack-is-loved: ∃ s Loves(s, Jack) .
+
+theorem jack-isn't-terrible
+        : ∀ x ∀ y Kills(x, y) ==> Terrible(x)
+        , (loved-not-terrible: ∀ y (∃ o Loves(o, y)) ==> ¬(Terrible(y)))
+        ⊢ ¬Terrible(Jack) . using { jack-is-loved, loved-not-terrible }
 
 
 theorem curiosity-is-monster-implies-jack-isn't

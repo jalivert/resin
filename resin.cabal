@@ -114,6 +114,7 @@ executable resin
     -- Other library packages from which modules are imported.
     build-depends:
         base >= 4.20 && < 4.23,
+        array >= 0.5.4.0,
         containers >=0.6.2.1,
         extra,
         resin
