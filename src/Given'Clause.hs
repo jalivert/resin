@@ -489,7 +489,7 @@ resolve'clauses cls1 cls2
 term'match :: Map.Map String Term -> [(Term, Term)] -> Maybe (Map.Map String Term)
 term'match env [] = Just env
 term'match env ((Fn f fa, Fn g ga) : oth)
-  | f == g && length ga == length ga = term'match env (zip fa ga ++ oth)
+  | f == g && length fa == length ga = term'match env (zip fa ga ++ oth)
 term'match env ((Var x, t) : oth)
   = if not (x `Map.member` env)
     then term'match (Map.insert x t env) oth

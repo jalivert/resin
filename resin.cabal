@@ -152,4 +152,5 @@ test-suite resin-test
     -- Test dependencies.
     build-depends:
         base >= 4.20 && < 4.23,
+        containers >=0.6.2.1,
         resin

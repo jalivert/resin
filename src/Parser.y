@@ -337,8 +337,12 @@ Binders     ::  { [String] }
                                                 ; return [ $1 ] } }
             |   LOWER Binders               {% do
                                                 { s <- get
-                                                ; let binders = scope s
-                                                ; put s{ scope = [$1] : binders }
+                                                --  The inner Binders already pushed one scope level;
+                                                --  extend it instead of pushing another one, so that
+                                                --  QFormula (which pops a single level) removes all
+                                                --  the binders of this quantifier.
+                                                ; let (b : bs) = scope s
+                                                ; put s{ scope = ($1 : b) : bs }
                                                 ; return ($1 : $2) } }
 
 

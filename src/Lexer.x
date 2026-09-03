@@ -74,7 +74,7 @@ $space+                 ;
 
 "⊥"                     { \_ -> token Token.Contradiction }
 "FALSE"                 { \_ -> token Token.Contradiction }
-"FALSE"                 { \_ -> token Token.Contradiction }
+"False"                 { \_ -> token Token.Contradiction }
 "CONTRADICTION"         { \_ -> token Token.Contradiction }
 "Contradiction"         { \_ -> token Token.Contradiction }
 
