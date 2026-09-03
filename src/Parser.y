@@ -9,7 +9,7 @@ import Data.Either.Extra ( mapRight )
 import Data.List qualified as List
 import Data.Maybe ( fromMaybe )
 
-import Lexer ( lexer, eval'parser, Lexer(..), AlexInput(..), Lexer'State(..) )
+import Lexer ( lexer, eval'parser, Lexer, AlexInput(..), Lexer'State(..) )
 import Token ( Token )
 import Token qualified as Token
 import Syntax ( Rel(..), Term(..), Formula(..), Theorem(..), Proof, Assertion(..) )

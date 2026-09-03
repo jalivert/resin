@@ -6,7 +6,7 @@ import Prelude hiding ( negate )
 
 import System.IO ( hFlush, stdout, openFile, IOMode(ReadMode), hGetContents )
 import System.Environment ( getArgs )
-import Control.Monad ( unless, when )
+import Control.Monad ( unless )
 import Control.Monad.Extra ( foldM_ )
 import Data.List qualified as List
 import Data.List.Extra qualified as List
@@ -75,8 +75,8 @@ repl assumptions = do
       assume (prompt'len + 3) assumptions formula
 
     ':' : 's' : 'h' : 'o' : 'w' : _ -> do
-      let context = List.intercalate "  ∧  " (map show assumptions)
-      putStrLn context
+      let full'context = List.intercalate "  ∧  " (map show assumptions)
+      putStrLn full'context
       repl assumptions
     
     ':' : 'e' : 'n' : 't' : 'a' : 'i' : 'l' : 's' : ' ' : formula -> do
@@ -278,7 +278,7 @@ check file'path assumptions = do
     Left (err, _) -> do
       putStrLn err
     Right (_, _, axioms, theorems) -> do
-      foldM_ (\ theorems theorem -> try'to'prove theorems (axioms ++ map (\ a -> (Nothing, a)) assumptions) theorem) [] theorems
+      foldM_ (\ proven theorem -> try'to'prove proven (axioms ++ map (\ a -> (Nothing, a)) assumptions) theorem) [] theorems
 
 
 -- check'verbose :: [S.Formula] -> String -> IO ()

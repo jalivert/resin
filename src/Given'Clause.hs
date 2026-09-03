@@ -4,7 +4,6 @@ import Prelude hiding ( negate )
 import Data.Maybe qualified as Maybe
 import Data.Set qualified as Set
 import Data.List qualified as List
-import Data.Foldable ( Foldable(foldl') )
 import Data.Map.Strict qualified as Map
 
 
@@ -28,8 +27,8 @@ over'atoms f (And p q) b = over'atoms f p (over'atoms f q b)
 over'atoms f (Or p q) b = over'atoms f p (over'atoms f q b)
 over'atoms f (Impl p q) b = over'atoms f p (over'atoms f q b)
 over'atoms f (Eq p q) b = over'atoms f p (over'atoms f q b)
-over'atoms f (Forall x p) b = over'atoms f p b
-over'atoms f (Exists x p) b = over'atoms f p b
+over'atoms f (Forall _ p) b = over'atoms f p b
+over'atoms f (Exists _ p) b = over'atoms f p b
 
 
 atom'union :: Ord a => (Rel -> Set.Set a) -> Formula -> Set.Set a
@@ -185,8 +184,8 @@ generalize fm = List.foldr Forall fm (fv fm)
 
 
 t'subst :: Map.Map String Term -> Term -> Term
-t'subst subst (Var x) =  Map.findWithDefault (Var x) x subst
-t'subst subst (Fn f terms) = Fn f (map (t'subst subst) terms)
+t'subst sub (Var x) =  Map.findWithDefault (Var x) x sub
+t'subst sub (Fn f terms) = Fn f (map (t'subst sub) terms)
 
 
 variant :: String -> Set.Set String -> String
@@ -197,8 +196,8 @@ variant x vars
 
 
 subst :: Map.Map String Term -> Formula -> Formula
-subst sub S.False = S.False
-subst sub S.True = S.True
+subst _ S.False = S.False
+subst _ S.True = S.True
 subst sub (Atom (Rel p terms)) = Atom (Rel p $! map (t'subst sub) terms)
 subst sub (Not p) = Not (subst sub p)
 subst sub (And p q) = And (subst sub p) (subst sub q)
@@ -320,12 +319,12 @@ skolem fm@(Exists y p) fns
         f'  = if List.null xs then 'ᶜ' : f else 'ᶠ' : f
         fx  = Fn f' (map Var xs)
     in  skolem (subst (Map.singleton y fx) p) (f `Set.insert` fns)
-skolem fm@(Forall x p) fns
+skolem (Forall x p) fns
   = let (p', fns') = skolem p fns in (Forall x p', fns')
-skolem fm@(And p q) fns
-  = skolem' (\ (p, q) -> And p q) (p, q) fns
-skolem fm@(Or p q) fns
-  = skolem' (\ (p, q) -> Or p q) (p, q) fns
+skolem (And p q) fns
+  = skolem' (uncurry And) (p, q) fns
+skolem (Or p q) fns
+  = skolem' (uncurry Or) (p, q) fns
 skolem fm fns
   = (fm, fns)
 
@@ -346,7 +345,7 @@ a'skolemize fm = fst $! skolem (nnf $! simplify fm) (Set.map fst (functions fm))
           I think it is expected that it's called only on a formula after all the quantifiers have been pulled out.
           Or possibly after transforming it to Prenex Normal Form.    -}
 specialize :: Formula -> Formula
-specialize (Forall x p) = specialize p
+specialize (Forall _ p) = specialize p
 specialize fm = fm
 
 
@@ -366,7 +365,12 @@ skolemise = pnf . a'skolemize
 is'triv :: Map.Map String Term -> String -> Term -> Bool
 is'triv env x (Var y)
   = y == x || y `Map.member` env && is'triv env x term
-  where Just term = y `Map.lookup` env  -- NOTE: This pattern match is non-exhaustive but here, it's safe.
+  --  NOTE: The lookup can not fail here: `term` is only evaluated when
+  --  `y` is a member of `env`, and `Map.lookup` is lazy in the same way
+  --  the irrefutable pattern used to be.
+  where term = case y `Map.lookup` env of
+                 Just t -> t
+                 Nothing -> error "is'triv: variable not in environment"
 
 is'triv env x (Fn _ terms)
   = List.any (is'triv env x) terms
@@ -375,7 +379,11 @@ is'triv env x (Fn _ terms)
 occurs'fails :: Map.Map String Term -> String -> Term -> Bool
 occurs'fails env x (Var y)
   = y `Map.member` env && occurs'fails env x term
-  where Just term = y `Map.lookup` env  -- NOTE: This pattern match is non-exhaustive but here, it's safe.
+  --  NOTE: As in `is'triv` above, `term` is only evaluated when `y` is
+  --  a member of `env`, so the lookup can not fail.
+  where term = case y `Map.lookup` env of
+                 Just t -> t
+                 Nothing -> error "occurs'fails: variable not in environment"
 occurs'fails env x (Fn _ terms)
   = List.any (is'triv env x) terms
 
@@ -383,7 +391,7 @@ occurs'fails env x (Fn _ terms)
 unify :: Map.Map String Term -> [(Term, Term)] -> Maybe (Map.Map String Term)
 unify env [] = Just env
 
-unify env ((fn@(Fn f f'args), gn@(Fn g g'args)) : eqs)
+unify env ((Fn f f'args, Fn g g'args) : eqs)
   = if f == g && length f'args == length g'args
     then unify env (zip f'args g'args ++ eqs)
     else Nothing -- error $! "impossible unification of " ++ show fn ++ " ≡ " ++ show gn
@@ -394,7 +402,11 @@ unify env ((Var x, t) : eqs)
     else  if occurs'fails env x t
           then Nothing
           else unify (if is'triv env x t then env else Map.insert x t env) eqs
-  where Just term = x `Map.lookup` env  -- NOTE: This pattern match is non-exhaustive but here, it's safe.
+  --  NOTE: As above, `term` is only evaluated when `x` is a member of
+  --  `env`, so the lookup can not fail.
+  where term = case x `Map.lookup` env of
+                 Just t' -> t'
+                 Nothing -> error "unify: variable not in environment"
 
 unify env ((t, Var x) : eqs)
   = unify env ((Var x, t) : eqs)
@@ -512,7 +524,7 @@ subsumes'clause cl1 cl2 = subsume Map.empty cl1
         subsume env (l1 : clt)
           = List.any (\ l2 -> case match'literals env (l1, l2) of
                                 Nothing -> False
-                                Just env -> subsume env clt) cl2
+                                Just env' -> subsume env' clt) cl2
 
 
 replace :: Clause -> [Clause] -> [Clause]
@@ -540,15 +552,22 @@ res'loop (_, (cl : _))
 
 res'loop (used, unused@(cl : cls))
   = let used' = Set.toList $! cl `Set.insert` Set.fromList used
-        resolvents = map (resolve'clauses cl) used'
-        news = Set.toList $! foldl' Set.union Set.empty resolvents
-    in  case contains'contradiction news of
-          Nothing -> res'loop (used', cls ++ news)
+        resolvents' = map (resolve'clauses cl) used'
+        news = Set.toList $! foldl' Set.union Set.empty resolvents'
+        --  Drop tautologies and clauses we have already seen. Without
+        --  this, resolvents like [P, ¬P] regenerate themselves on every
+        --  round and even trivial propositional inputs (e.g. `P <=> Q`)
+        --  loop forever. Removing them preserves completeness: a taken
+        --  clause already performed all of its inferences.
+        seen = Set.fromList used' `Set.union` Set.fromList unused
+        news' = filter (\ c -> not (trivial c) && not (c `Set.member` seen)) news
+    in  case contains'contradiction news' of
+          Nothing -> res'loop (used', cls ++ news')
           Just answers -> Just answers
 
 
 contains'contradiction :: [Conjunct] -> Maybe [Formula]
-contains'contradiction = List.find (\ formulae -> List.all is'answer formulae && all'unique (List.map (\ (Atom (Rel "_Answer_" [_, Fn x _])) -> x) formulae))
+contains'contradiction = List.find (\ formulae -> List.all is'answer formulae && all'unique (List.map answer'name formulae))
 
 
 all'unique :: [String] -> Bool
@@ -560,13 +579,25 @@ is'answer (Atom (Rel "_Answer_" [_, _])) = True
 is'answer _ = False
 
 
+--  NOTE: Both helpers below are total, but the fallback can not happen:
+--  they are only ever applied to literals that already passed `is'answer`.
+answer'name :: Formula -> String
+answer'name (Atom (Rel "_Answer_" [_, Fn x _])) = x
+answer'name _ = error "Given'Clause: expected an _Answer_ literal"
+
+
+answer'pair :: Formula -> (String, Term)
+answer'pair (Atom (Rel "_Answer_" [term, Fn name []])) = (name, term)
+answer'pair _ = error "Given'Clause: expected an _Answer_ literal"
+
+
 pure'resolution :: Formula -> Maybe [Formula]
 pure'resolution fm = res'loop ([], simp'cnf . specialize . skolemise $! fm)
 
 
 {-  This function can deal with formulae in the form of existentials. If it succeeds, it finds a proof of that existential goal.  -}
 resolution :: [Formula] -> Formula -> Maybe [(String, Term)]
-resolution assumptions fm@(Exists x p)
+resolution assumptions fm@(Exists _ _)
   = -- find all the existentially quantified variables at the top level
     let all'exs = all'existentials fm
         neg'fm  = nnf (negate fm)
@@ -578,11 +609,11 @@ resolution assumptions fm@(Exists x p)
         full'fm   = list'conj (disjunction : assumptions)
     in  do
       formulae <- pure'resolution full'fm
-      return $! map (\ (Atom (Rel "_Answer_" [term, Fn name []])) -> (name, term)) formulae
+      return $! map answer'pair formulae
 
 resolution assumptions fm = do
   formulae <- resolution' assumptions fm
-  return $! map (\ (Atom (Rel "_Answer_" [term, Fn name []])) -> (name, term)) formulae
+  return $! map answer'pair formulae
 
 
 {-  This is just the ordinary resolution. It doesn't care about constructive or nonconstructive proofs and existential formulae.  -}

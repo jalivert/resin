@@ -1,7 +1,7 @@
 module Syntax ( Rel(..), Term(..), Formula(..), Theorem(..), Proof, Assertion(..) ) where
 
 
-import Prelude hiding ( True, False, And, Or )
+import Prelude hiding ( True, False )
 import Prelude qualified as P
 import Data.List ( intercalate )
 
@@ -92,15 +92,8 @@ instance Show Formula where
 is'compound :: Formula -> Bool
 is'compound True = P.False
 is'compound False = P.False
-is'compound (Atom (Rel n [])) = P.False
-is'compound (Atom (Rel n terms)) = P.False
-is'compound (Not p) = P.True
-is'compound (And p q) = P.True
-is'compound (Or p q) = P.True
-is'compound (Impl p q) = P.True
-is'compound (Eq p q) = P.True
-is'compound (Forall x p) = P.True
-is'compound (Exists x p) = P.True
+is'compound (Atom _) = P.False
+is'compound _ = P.True
 
 
 data Theorem = Theorem  { name          :: String

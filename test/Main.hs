@@ -15,6 +15,7 @@ import Data.Maybe (isJust, isNothing)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import System.Exit (exitFailure, exitSuccess)
+import System.Timeout (timeout)
 
 import Syntax (Formula, Rel(..), Term(..))
 import qualified Syntax as S
@@ -148,6 +149,8 @@ parserTests = do
           (S.And (S.Not p) q)
   b5 <- parsesAs "parens override" "(P OR Q) AND R"
           (S.And (S.Or p q) (S.Atom (Rel "R" [])))
+  b6 <- parsesAs "impl binds tighter than equiv" "P ==> Q <=> R"
+          (S.Eq (S.Impl p q) (S.Atom (Rel "R" [])))
 
   putStrLn "-- parser: quantifiers, variables, constants --"
   c1 <- parsesAs "forall ascii" "forall x P(x)"
@@ -178,9 +181,17 @@ parserTests = do
   d2 <- checkModuleUsing
   d3 <- checkModuleBadUsing
   d4 <- checkModuleDupAlias
+  d5 <- checkModuleAliasUse
+  d6 <- checkModuleProof
+  e1 <- roundTrip "atom round trip" p
+  e2 <- roundTrip "connective round trip" (S.Impl (S.And p (S.Not q)) (S.Eq p q))
+  e3 <- roundTrip "quantifier round trip"
+          (S.Forall "x" (S.Exists "y" (S.Atom (Rel "R" [Var "x", Var "y"]))))
+  e4 <- roundTrip "constants round trip" S.True
   return (and [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14,
-               a15, a16, a17, b1, b2, b3, b4, b5, c1, c2, c3, c4, c5, c6, c7,
-               c8, c9, c10, c11, c12, c13, c14, d1, d2, d3, d4])
+               a15, a16, a17, b1, b2, b3, b4, b5, b6, c1, c2, c3, c4, c5, c6, c7,
+               c8, c9, c10, c11, c12, c13, c14, d1, d2, d3, d4, d5, d6,
+               e1, e2, e3, e4])
 
 
 checkModuleValid :: IO Bool
@@ -222,6 +233,43 @@ checkModuleDupAlias =
   case P.parse'module "constants: zero .\naliases: a = zero, a = zero .\n" of
     Left _ -> check "duplicate alias rejected" True
     Right _ -> check "duplicate alias rejected" False
+
+
+-- Numeric aliases rewrite to the aliased term at the use site.
+checkModuleAliasUse :: IO Bool
+checkModuleAliasUse =
+  case P.parse'module "constants: zero .\naliases: 0 = zero .\ntheorem t: Nat(0) .\n" of
+    Left (err, _) -> do
+      _ <- check "alias use parses" False
+      putStrLn ("  error: " ++ err)
+      return False
+    Right (_, als, _, [thm]) -> do
+      r1 <- checkEq "alias recorded" [("0", Fn "zero" [])] als
+      r2 <- checkEq "alias rewritten at use site"
+              (S.Atom (Rel "Nat" [Fn "zero" []])) (S.conclusion thm)
+      return (and [r1, r2])
+    Right _ -> check "alias use parses (shape)" False
+
+
+-- A theorem may carry a proof: a list of (possibly restricted) assertions.
+checkModuleProof :: IO Bool
+checkModuleProof =
+  case P.parse'module "axioms: (a1: P), (a2: P ==> Q) .\ntheorem t: Q proof: lemma h: Q using { a1, a2 } . using { h }\n" of
+    Left (err, _) -> do
+      _ <- check "proof parses" False
+      putStrLn ("  error: " ++ err)
+      return False
+    Right (_, _, _, [thm]) -> do
+      r1 <- checkEq "one assertion recorded" 1 (length (S.proof thm))
+      r2 <- checkEq "conclusion using recorded" (Just ["h"]) (S.allowed thm)
+      return (and [r1, r2])
+    Right _ -> check "proof parses (shape)" False
+
+
+-- Pretty-printing and parsing agree on formulas without undeclared constants.
+roundTrip :: String -> Formula -> IO Bool
+roundTrip label fm =
+  checkEq label (Right fm :: Either (String, Int) Formula) (P.parse'formula (show fm))
 
 
 -- Pure transformation tests ----------------------------------------------
@@ -365,8 +413,134 @@ resolutionTests = do
                                              (S.Atom (Rel "Q" [Var "x"]))), pa]
                         (S.Atom (Rel "Q" [Fn "a" []])))
   f4 <- isUnprovable "cannot prove unrelated predicate" (G.resolution [pa] qb)
+  f5 <- isProved "symmetric relation"
+          (G.resolution [sym, rab] rba)
+  f6 <- isProved "transitive relation"
+          (G.resolution [trans, rab, rbc] rac)
+  f7 <- isUnprovable "existential does not give an instance"
+          (G.resolution [S.Exists "x" (S.Atom (Rel "P" [Var "x"]))] pa)
+  f8 <- isUnprovable "universal P says nothing about Q"
+          (G.resolution [forallP] (S.Exists "x" (S.Atom (Rel "Q" [Var "x"]))))
 
-  return (and [r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, f1, f2, f3, f4])
+  -- NOTE: classically valid, but the prover terminates with Nothing.
+  -- The answer-augmented clause set reaches the all-answer clause
+  -- [Answer(xx), Answer(c)], which resolves with nothing, and
+  -- `resolvents` never factors a clause on its own (the partner subset
+  -- must be non-empty), so no contradiction is ever detected. Naively
+  -- adding factoring would be worse: it would extract `c` as the
+  -- witness, but no single term witnesses the drinker paradox, so the
+  -- answer would be unsound. This pins the current incompleteness.
+  d1 <- checkEq "drinker paradox unprovable (known incompleteness)"
+          Nothing
+          (G.resolution [] drinker)
+
+  return (and [r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11,
+               f1, f2, f3, f4, f5, f6, f7, f8, d1])
+  where
+    rel2 :: String -> String -> String -> Formula
+    rel2 n x y = S.Atom (Rel n [Var x, Var y])
+    sym = S.Forall "x" (S.Forall "y"
+            (S.Impl (rel2 "R" "x" "y") (rel2 "R" "y" "x")))
+    trans = S.Forall "x" (S.Forall "y" (S.Forall "z"
+            (S.Impl (S.And (rel2 "R" "x" "y") (rel2 "R" "y" "z"))
+                    (S.Atom (Rel "R" [Var "x", Var "z"])))))
+    rab = S.Atom (Rel "R" [Fn "a" [], Fn "b" []])
+    rba = S.Atom (Rel "R" [Fn "b" [], Fn "a" []])
+    rbc = S.Atom (Rel "R" [Fn "b" [], Fn "c" []])
+    rac = S.Atom (Rel "R" [Fn "a" [], Fn "c" []])
+    drinker = S.Exists "x" (S.Impl (S.Atom (Rel "P" [Var "x"]))
+                                   (S.Forall "y" (S.Atom (Rel "P" [Var "y"]))))
+
+
+-- Differential tests: an independent brute-force oracle --------------------
+--
+-- For the propositional fragment we can decide validity by truth tables.
+-- Every formula in the corpus is checked four ways: refutation agrees
+-- with unsatisfiability, entailment-of-nothing agrees with validity, and
+-- the DNF and CNF conversions preserve truth in every valuation.
+-- Each prover call is guarded by a timeout so that a divergence on a
+-- tiny input shows up as a reported failure instead of hanging the suite.
+
+evalProp :: Map.Map String Bool -> Formula -> Bool
+evalProp _ S.True = True
+evalProp _ S.False = False
+evalProp env (S.Atom (Rel n [])) = Map.findWithDefault False n env
+evalProp env (S.Not f) = not (evalProp env f)
+evalProp env (S.And f g) = evalProp env f && evalProp env g
+evalProp env (S.Or f g) = evalProp env f || evalProp env g
+evalProp env (S.Impl f g) = not (evalProp env f) || evalProp env g
+evalProp env (S.Eq f g) = evalProp env f == evalProp env g
+evalProp _ f = error ("evalProp: non-propositional formula: " ++ show f)
+
+
+evalClauses :: Map.Map String Bool -> [[Formula]] -> Bool
+evalClauses env cs = all (any (evalProp env)) cs
+
+
+valuations :: [Map.Map String Bool]
+valuations = [Map.fromList [("P", a), ("Q", b)] | a <- [False, True], b <- [False, True]]
+
+
+isValidProp :: Formula -> Bool
+isValidProp f = all (`evalProp` f) valuations
+
+
+isUnsatProp :: Formula -> Bool
+isUnsatProp f = all (not . (`evalProp` f)) valuations
+
+
+stride :: Int -> [a] -> [a]
+stride _ [] = []
+stride n (x : xs) = x : stride n (drop (n - 1) xs)
+
+
+corpus :: [Formula]
+corpus = depth1 ++ stride 193 depth2
+  where
+    atoms0 = [S.True, S.False, p, q]
+    depth1 = atoms0
+             ++ map S.Not atoms0
+             ++ [op f g | op <- binops, f <- atoms0, g <- atoms0]
+    depth2 = [op f g | op <- binops, f <- depth1, g <- depth1]
+    binops = [S.And, S.Or, S.Impl, S.Eq]
+
+
+-- Nothing means the formula passed all four checks; Just msg describes
+-- the first failure.
+checkPropFormula :: Formula -> IO (Maybe String)
+checkPropFormula f = do
+  refuted <- timeout 5000000 (return $! G.pure'resolution f)
+  proved <- timeout 5000000 (return $! G.resolution [] f)
+  case (refuted, proved) of
+    (Just ref, Just val)
+      | isUnsatProp f /= isJust ref ->
+          return (Just ("refutation mismatch: " ++ show f))
+      | isValidProp f /= isJust val ->
+          return (Just ("validity mismatch: " ++ show f))
+      | any (\ e -> evalProp e (G.dnf f) /= evalProp e f) valuations ->
+          return (Just ("dnf mismatch: " ++ show f))
+      | any (\ e -> evalClauses e (G.simp'cnf f) /= evalProp e f) valuations ->
+          return (Just ("cnf mismatch: " ++ show f))
+      | otherwise -> return Nothing
+    _ -> return (Just ("prover diverged (5s timeout): " ++ show f))
+
+
+sweepTests :: IO Bool
+sweepTests = do
+  putStrLn "-- differential: resolution vs truth tables --"
+  putStrLn ("    corpus size: " ++ show (length corpus))
+  problems <- foldr (\ f rest -> do
+                       acc <- rest
+                       prob <- checkPropFormula f
+                       return (maybe acc (: acc) prob))
+                    (return []) corpus
+  if null problems
+    then check ("all " ++ show (length corpus) ++ " formulas agree") True
+    else do
+      _ <- check "resolution agrees with truth tables" False
+      mapM_ (putStrLn . ("  " ++)) (take 5 problems)
+      putStrLn ("  ... (" ++ show (length problems) ++ " mismatches total)")
+      return False
 
 
 -- Example files parse (best effort: skipped when not run from repo root) --
@@ -414,10 +588,12 @@ main = do
   rPure <- pureTests
   putStrLn "== resolution =="
   rResolution <- resolutionTests
+  putStrLn "== differential sweep =="
+  rSweep <- sweepTests
   putStrLn "== examples =="
   rExamples <- exampleTests
   putStrLn ""
-  if and [rParser, rPure, rResolution, rExamples]
+  if and [rParser, rPure, rResolution, rSweep, rExamples]
     then do
       putStrLn "All tests passed."
       exitSuccess

@@ -1,5 +1,5 @@
 {
-module Lexer ( lexer, read'token, eval'parser, Lexer(..), AlexInput(..), Lexer'State(..) ) where
+module Lexer ( lexer, read'token, eval'parser, Lexer, AlexInput(..), Lexer'State(..) ) where
 
 
 import Control.Monad.Except ( Except, runExcept, throwError )
