@@ -160,9 +160,9 @@ There are also a few commands for a simple transformation on formulae.
 
 ## Resources
 
-1. [Handbook of Practical Logic and Automated Reasoning](https://www.cl.cam.ac.uk/~jrh13/atp/)
+1. [Handbook of Practical Logic and Automated Reasoning](https://www.cl.cam.ac.uk/~jrh13/atp/), accompanied by [informal reading notes](https://github.com/jalivert/reading/blob/main/reports/handbook-of-practical-logic-and-automated-reasoning.md) on the text.
 
-2. [Artificial Intelligence: A Modern Approach](https://aima.cs.berkeley.edu)
+2. [Artificial Intelligence: A Modern Approach](https://aima.cs.berkeley.edu), accompanied by [informal reading notes](https://github.com/jalivert/reading/blob/main/reports/artificial-intelligence-a-modern-approach.md) on the text.
 
 
 The first book is where the source code comes from. It has been only slightly modified to end up being as close to the book's implementation as possible while having a slightly different approach. The book seems to be using the resolution to prove or rather find contradictions in a single formula. This tool handles statements in the form of a logical entailment.
