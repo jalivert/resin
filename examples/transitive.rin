@@ -1,0 +1,32 @@
+% Transitivity of a relation.
+%
+% Stated directly, this theorem takes about a minute to prove: the
+% three-literal transitivity clause generates ever-growing resolvents
+% (each round enumerates power sets over them) and nothing prunes them
+% (subsumption is disabled, see the README).
+%
+% Splitting the reasoning into smaller lemmas does NOT help here, and
+% the reason is instructive: every subproof that uses `trans` contains
+% the same three-literal clause, so it grows the same resolvent cloud.
+% The queue is FIFO over a set-ordered clause set, and fresh-variable
+% headed junk sorts before the ground-headed clauses the proof actually
+% needs, so the expensive takes happen first no matter how the proof is
+% split. Speeding this up would require changing the search itself, for
+% example preferring shorter clauses over FIFO order.
+
+constants: a, b, c .
+
+axioms: (trans: forall x y z ((R(x, y) AND R(y, z)) ==> R(x, z)))
+      , (rab: R(a, b))
+      , (rbc: R(b, c)) .
+
+
+% The direct version (takes about a minute):
+% theorem trans-slow: R(a, c) .
+
+
+% The hand-held version (takes just as long, for the reason above):
+theorem trans-held: R(a, c)
+proof: lemma step1: forall z (R(b, z) ==> R(a, z)) using { trans, rab }
+     , lemma step2: R(a, c) using { step1, rbc }
+     . using { step2 }

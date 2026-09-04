@@ -1,5 +1,7 @@
 # Resin
 
+[![Haskell CI](https://github.com/jalivert/resin/actions/workflows/haskell.yml/badge.svg)](https://github.com/jalivert/resin/actions/workflows/haskell.yml)
+
 An implementation of a toy *automated theorem prover* for *classical FOL* built on *resolution*.
 
 
