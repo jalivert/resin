@@ -3,19 +3,16 @@
 An implementation of a toy *automated theorem prover* for *classical FOL* built on *resolution*.
 
 
+## Background
+
+This project is a direct implementation of the material presented in the two texts listed under *Resources* below. The resolution machinery follows the *Handbook of Practical Logic and Automated Reasoning*, supplemented by background from *Artificial Intelligence: A Modern Approach* (chapters 7–9); the structure of the implementation reflects those texts.
+
+
 ## What does this project implement?
 
-The implementation is based on a *given clause algorithm* for *resolution*.
-For more information about it, see the *Resources* section.
+The prover is based on a *given clause algorithm* for *resolution*; see the *Resources* section for the relevant references.
 
-
-The [book](https://www.cl.cam.ac.uk/~jrh13/atp/) in the *Resources*
-describes some optimizations as well as specific forms of resolution.
-This implementation does not (yet) implement those specific forms or resolution.
-It does, however, contain an implementation of the optimization the book mentions.
-The subsumption, to be more precise. As it turns out, however,
-that was making the implementation really slow, unbearably slow.
-For that reason, I decided to not use it for the time being.
+The *Handbook* describes several optimizations as well as specific forms of resolution. Those specific forms are not (yet) implemented here. The optimization it mentions — *subsumption* — is implemented, but it made the prover unbearably slow in practice, so it is currently disabled.
 
 
 ## Structure of the Files
