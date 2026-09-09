@@ -7,7 +7,7 @@ An implementation of a toy *automated theorem prover* for *classical FOL* built 
 
 ## Background
 
-This project is a direct implementation of the material presented in the two texts listed under *Resources* below. The resolution machinery follows the *Handbook of Practical Logic and Automated Reasoning*, supplemented by background from *Artificial Intelligence: A Modern Approach* (chapters 7–9); the structure of the implementation reflects those texts.
+This project is a direct implementation of the material presented in the two texts listed under *Resources* below. The resolution machinery follows the [Handbook of Practical Logic and Automated Reasoning](https://www.cl.cam.ac.uk/~jrh13/atp/), supplemented by background from [Artificial Intelligence: A Modern Approach](https://aima.cs.berkeley.edu) (chapters 7–9); the structure of the implementation reflects those texts.
 
 
 ## What does this project implement?
